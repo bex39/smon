@@ -62,32 +62,32 @@
 ## 📸 Screenshots
 
 ### Login Page
-![Login Page](screenshots/SMon%20-%20Login.png)
+![Login Page](docs/screenshots/SMon%20-%20Login.png)
 
 Halaman login dengan autentikasi sederhana untuk mengakses dashboard monitoring.
 
 ### Dashboard
-![Dashboard](screenshots/Smon%20-%20Dashboard.png)
+![Dashboard](docs/screenshots/Smon%20-%20Dashboard.png)
 
 Dashboard utama menampilkan overview sistem dan informasi real-time.
 
 ### Bandwidth Monitor
-![Bandwidth Monitor](screenshots/Smon%20-%20Bandwidth%20Monitor.png)
+![Bandwidth Monitor](docs/screenshots/Smon%20-%20Bandwidth%20Monitor.png)
 
 Monitoring bandwidth real-time dengan grafik RX/TX untuk setiap interface.
 
 ### Devices Management
-![Devices Management](screenshots/SMon%20-%20Devices.png)
+![Devices Management](docs/screenshots/SMon%20-%20Devices.png)
 
 Manajemen perangkat jaringan dengan konfigurasi SNMP interface.
 
 ### Settings
-![Settings](screenshots/SMon%20-%20Settings.png)
+![Settings](docs/screenshots/SMon%20-%20Settings.png)
 
 Konfigurasi aplikasi termasuk interval polling dan pengaturan sistem.
 
 ### About Page
-![About Page](screenshots/SMon%20-%20About.png)
+![About Page](docs/screenshots/SMon%20-%20About.png)
 
 Informasi tentang aplikasi dan dedikasi khusus.
 
