@@ -40,6 +40,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Cookie parser middleware
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+  const isAuthenticated = req.cookies.authenticated === 'true';
+  if (isAuthenticated || req.path === '/login' || req.path === '/about') {
+    next();
+  } else {
+    res.redirect('/login');
+  }
+};
+
+// Apply authentication to protected routes
+app.use(requireAuth);
+
 // Settings configuration
 let settings = {
   pollingInterval: 300000 // 5 minutes in milliseconds
@@ -93,6 +110,39 @@ app.get('/settings', (req, res) => {
     devices: snmpDevices,
     pollingIntervalSeconds: settings.pollingInterval / 1000
   });
+});
+
+// Route for about page
+app.get('/about', (req, res) => {
+  res.render('about');
+});
+
+// Route for login page
+app.get('/login', (req, res) => {
+  res.render('login', { error: null, success: null });
+});
+
+// Route for login processing
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Simple authentication (you can replace this with proper authentication)
+  if (username === 'admin' && password === 'admin123') {
+    // Set session or cookie for authentication
+    res.cookie('authenticated', 'true', { maxAge: 24 * 60 * 60 * 1000 }); // 24 hours
+    res.redirect('/');
+  } else {
+    res.render('login', {
+      error: 'Invalid username or password',
+      success: null
+    });
+  }
+});
+
+// Route for logout
+app.get('/logout', (req, res) => {
+  res.clearCookie('authenticated');
+  res.redirect('/login');
 });
 
 // Route for bandwidth monitoring page
@@ -606,6 +656,7 @@ function pollSNMP() {
                 .tag('device_name', device.name)
                 .tag('interface', iface.name)
                 .tag('direction', 'rx')
+                .timestamp(new Date())
                 .floatField('value', rxValue);
               writeApi.writePoint(rxPoint);
               writeApi.close().then(() => {
@@ -634,6 +685,7 @@ function pollSNMP() {
                 .tag('device_name', device.name)
                 .tag('interface', iface.name)
                 .tag('direction', 'tx')
+                .timestamp(new Date())
                 .floatField('value', txValue);
               writeApi.writePoint(txPoint);
               writeApi.close().then(() => {
