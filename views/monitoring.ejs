@@ -133,7 +133,7 @@
               <label class="block text-sm font-medium text-gray-300 mb-2">
                 <i class="fas fa-server mr-2 text-blue-400"></i>Select Device
               </label>
-              <select id="device-selector" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="device-selector" class="w-full bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Choose a device...</option>
                 <% Object.entries(devices).forEach(([key, device]) => { %>
                   <option value="<%= key %>" <%= key === selectedDevice ? 'selected' : '' %>>
@@ -148,7 +148,7 @@
               <label class="block text-sm font-medium text-gray-300 mb-2">
                 <i class="fas fa-network-wired mr-2 text-green-400"></i>Select Interface
               </label>
-              <select id="interface-selector" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="interface-selector" class="w-full bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="all">All Selected Interfaces</option>
               </select>
             </div>
@@ -158,7 +158,7 @@
               <label class="block text-sm font-medium text-gray-300 mb-2">
                 <i class="fas fa-calendar-alt mr-2 text-purple-400"></i>Time Range
               </label>
-              <select id="time-range-selector" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="time-range-selector" class="w-full bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="-1h" selected>Last 1 Hour</option>
                 <option value="-24h">Last 24 Hours</option>
                 <option value="-7d">Last 7 Days</option>
@@ -181,14 +181,14 @@
           </div>
 
           <!-- Custom Date Range (Hidden by default) -->
-          <div id="custom-date-from" class="hidden mt-6 pt-6 border-t border-slate-600">
+          <div id="custom-date-from" class="hidden mt-6 pt-6 border-t border-slate-700">
             <label class="block text-sm font-medium text-gray-300 mb-2">From Date:</label>
-            <input type="datetime-local" id="date-from-input" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="datetime-local" id="date-from-input" class="w-full bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
           <div id="custom-date-to" class="hidden mt-4">
             <label class="block text-sm font-medium text-gray-300 mb-2">To Date:</label>
-            <input type="datetime-local" id="date-to-input" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="datetime-local" id="date-to-input" class="w-full bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
         </div>
 
@@ -483,7 +483,7 @@
                 tooltipFormat: 'MMM dd, yyyy HH:mm:ss'
               },
               grid: {
-                color: 'rgba(100, 116, 139, 0.2)',
+                color: 'rgba(100, 116, 139, 0.3)',
                 drawBorder: false
               },
               ticks: {
@@ -495,7 +495,7 @@
             y: {
               beginAtZero: true,
               grid: {
-                color: 'rgba(100, 116, 139, 0.2)',
+                color: 'rgba(100, 116, 139, 0.3)',
                 drawBorder: false
               },
               ticks: {
@@ -609,7 +609,7 @@
             y: {
               beginAtZero: true,
               grid: {
-                color: 'rgba(100, 116, 139, 0.2)',
+                color: 'rgba(100, 116, 139, 0.3)',
                 drawBorder: false
               },
               ticks: {
@@ -850,27 +850,26 @@
         doc.text('SNMP Network Performance Analysis', margin + 25, 27);
 
         // Report metadata box
-        doc.setFillColor(51, 65, 85); // slate-700
-        doc.roundedRect(margin, 32, pageWidth - (margin * 2), 10, 2, 2, 'F');
-        doc.setFontSize(8);
-        doc.setTextColor(226, 232, 240); // slate-200
-        const reportDate = new Date().toLocaleString('en-US', { 
-          year: 'numeric', month: 'short', day: 'numeric',
-          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
-        });
-        doc.text(`Generated: ${reportDate}`, margin + 3, 38);
-        doc.text(`Device: ${deviceSelector.options[deviceSelector.selectedIndex].text}`, pageWidth / 2, 38);
-        doc.text(`Time Range: ${timeRangeSelector.options[timeRangeSelector.selectedIndex].text}`, pageWidth - margin - 3, 38, { align: 'right' });
+          doc.setFillColor(51, 65, 85); // slate-700
+          doc.roundedRect(margin, 32, pageWidth - (margin * 2), 10, 2, 2, 'F');
+          doc.setFontSize(8);
+          doc.setTextColor(226, 232, 240); // slate-200
+          const reportDate = new Date().toLocaleString('en-US', { 
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+          });
+          doc.text(`Generated: ${reportDate}`, margin + 3, 38);
+          doc.text(`Device: ${deviceSelector.options[deviceSelector.selectedIndex].text}`, pageWidth / 2, 38);
+          doc.text(`Time Range: ${timeRangeSelector.options[timeRangeSelector.selectedIndex].text}`, pageWidth - margin - 3, 38, { align: 'right' });
 
-        yPosition = 50;
+          yPosition = 50;
 
-        // Device Information Section
-        doc.setFillColor(248, 250, 252); // slate-50
-        doc.rect(margin, yPosition, pageWidth - (margin * 2), 20, 'F');
-        doc.setDrawColor(203, 213, 225); // slate-300
-        doc.rect(margin, yPosition, pageWidth - (margin * 2), 20);
-
-        doc.setFontSize(12);
+          // Device Information Section
+          doc.setFillColor(248, 250, 252); // slate-50
+          doc.rect(margin, yPosition, pageWidth - (margin * 2), 20, 'F');
+          doc.setDrawColor(203, 213, 225); // slate-300
+          doc.setLineWidth(0.8);
+          doc.rect(margin, yPosition, pageWidth - (margin * 2), 20);        doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(15, 23, 42); // slate-900
         doc.text('DEVICE INFORMATION', margin + 3, yPosition + 6);
@@ -918,7 +917,7 @@
           doc.setFillColor(255, 255, 255);
           doc.roundedRect(x, y, statBoxWidth, 18, 1, 1, 'F');
           doc.setDrawColor(...stat.color);
-          doc.setLineWidth(0.5);
+          doc.setLineWidth(0.8);
           doc.roundedRect(x, y, statBoxWidth, 18, 1, 1);
           
           doc.setFontSize(8);
@@ -975,7 +974,7 @@
           const chartHeight = 60;
           
           doc.setDrawColor(203, 213, 225); // slate-300
-          doc.setLineWidth(0.3);
+          doc.setLineWidth(0.8);
           doc.rect(margin, yPosition, chartWidth, chartHeight);
           doc.addImage(chartImageData, 'PNG', margin + 1, yPosition + 1, chartWidth - 2, chartHeight - 2);
           
@@ -989,7 +988,7 @@
         // Footer on last page
         const footerY = pageHeight - 15;
         doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.3);
+        doc.setLineWidth(0.8);
         doc.line(margin, footerY, pageWidth - margin, footerY);
         
         doc.setFontSize(8);
