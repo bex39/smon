@@ -352,20 +352,55 @@ pm2 save
 pm2 startup
 ```
 
-### Docker Deployment
+### Docker Compose Deployment (Recommended)
 
-```dockerfile
-FROM node:18-alpine
+1. **Clone repository**
+   ```bash
+   git clone <repository-url>
+   cd smon
+   ```
 
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
+2. **Configure environment**
+   - Copy `.env` file and update values:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-COPY . .
-EXPOSE 3000
+3. **Configure devices**
+   - Edit `config.json` to add your SNMP devices
+   - Edit `settings.json` for application settings
 
-CMD ["npm", "start"]
-```
+4. **Start with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Access application**
+   - Web UI: `http://localhost:3000`
+   - InfluxDB: `http://localhost:8086`
+
+#### Docker Compose Files
+
+- `docker-compose.yml`: Main deployment configuration
+- `Dockerfile`: Node.js application container
+- `.env`: Environment variables configuration
+
+#### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Application port | `3000` |
+| `INFLUXDB_PORT` | InfluxDB port | `8086` |
+| `INFLUXDB_URL` | InfluxDB URL | `http://influxdb:8086` |
+| `INFLUXDB_ORG` | InfluxDB organization | `indobsd` |
+| `INFLUXDB_BUCKET` | InfluxDB bucket | `graphts` |
+| `INFLUXDB_TOKEN` | InfluxDB token | (long token) |
+| `POLLING_INTERVAL` | SNMP polling interval (ms) | `300000` |
+| `PING_INTERVAL` | Ping monitoring interval (ms) | `30000` |
+| `DATA_RETENTION` | Data retention days | `365` |
+| `ADMIN_USERNAME` | Admin username | `admin` |
+| `ADMIN_PASSWORD` | Admin password | `admin123` |
 
 ## 🤝 Contributing
 

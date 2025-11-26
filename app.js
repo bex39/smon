@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -7,7 +9,7 @@ const ping = require('ping');
 const os = require('os');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Vendor OID mappings for different network device vendors
 const VENDOR_OIDS = {
@@ -182,14 +184,14 @@ app.use(requireAuth);
 
 // Settings configuration
 let settings = {
-  pollingInterval: 300000, // 5 minutes in milliseconds
-  pingInterval: 30000, // 30 seconds in milliseconds
-  dataRetention: 365, // days (12 months)
+  pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 300000, // 5 minutes in milliseconds
+  pingInterval: parseInt(process.env.PING_INTERVAL) || 30000, // 30 seconds in milliseconds
+  dataRetention: parseInt(process.env.DATA_RETENTION) || 365, // days (12 months)
   influxdb: {
-    url: 'http://localhost:8086',
-    org: 'indobsd',
-    bucket: 'graphts',
-    token: 'Sag1KBQNatpHmaMDoCDLB1Vrt-QAMTfwL_K13gRYjUihTrzlRSOdoDB9HwH6imIJpSMz4XgfG9AEAL4FtwUZpQ=='
+    url: process.env.INFLUXDB_URL || 'http://localhost:8086',
+    org: process.env.INFLUXDB_ORG || 'indobsd',
+    bucket: process.env.INFLUXDB_BUCKET || 'graphts',
+    token: process.env.INFLUXDB_TOKEN || 'Sag1KBQNatpHmaMDoCDLB1Vrt-QAMTfwL_K13gRYjUihTrzlRSOdoDB9HwH6imIJpSMz4XgfG9AEAL4FtwUZpQ=='
   }
 };
 
@@ -555,7 +557,10 @@ app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
   // Simple authentication (you can replace this with proper authentication)
-  if (username === 'admin' && password === 'admin123') {
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (username === adminUsername && password === adminPassword) {
     // Set session or cookie for authentication
     res.cookie('authenticated', 'true', { maxAge: 24 * 60 * 60 * 1000 }); // 24 hours
     res.redirect('/');
