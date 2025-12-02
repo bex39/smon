@@ -2976,7 +2976,8 @@ app.get('/api/data', async (req, res) => {
         |> filter(fn: (r) => r._value >= 0 and r._value <= 100)
       `;
     } else {
-      // Bandwidth data - now storing deltas, so just convert to Mbps
+      // Bandwidth data - convert stored deltas to Mbps using actual polling interval
+      const pollingIntervalSeconds = settings.pollingInterval / 1000;
       if (interface !== 'all') {
         query += ` |> filter(fn: (r) => r.interface == "${interface}")`;
       }
@@ -2984,7 +2985,7 @@ app.get('/api/data', async (req, res) => {
         query += ` |> filter(fn: (r) => r.direction == "${direction}")`;
       }
       query += `
-        |> map(fn: (r) => ({ r with _value: r._value * 8.0 / 1000000.0 }))
+        |> map(fn: (r) => ({ r with _value: r._value * 8.0 / 1000000.0 / ${pollingIntervalSeconds}.0 }))
         |> filter(fn: (r) => r._value >= 0)
       `;
     }
