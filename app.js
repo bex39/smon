@@ -31,62 +31,38 @@ function handleCounterRollover(deviceId, iface, direction, currentValue) {
   
   // Detect rollover (current value is less than previous value)
   if (currentValue < previousValue) {
-    // Assume 32-bit counter rollover (most common)
     const max32Bit = 4294967295; // 2^32 - 1
     const max64Bit = 18446744073709551615; // 2^64 - 1
-
-    // Calculate the actual drop
     const actualDrop = previousValue - currentValue;
 
-    // Check for multiple 32-bit rollovers (for very high-speed interfaces)
-    // Look for drops that are close to N * 2^32
-    let bestMatch = actualDrop;
-    let bestRolloverCount = 0;
-
-    for (let n = 1; n <= 20; n++) { // Check up to 20 rollovers
-      const expectedDrop = n * (max32Bit + 1) - (max32Bit - previousValue + currentValue);
-      const diff = Math.abs(actualDrop - expectedDrop);
-      if (diff < bestMatch) {
-        bestMatch = diff;
-        bestRolloverCount = n;
-      }
-    }
-
-    if (bestRolloverCount > 0 && bestMatch < max32Bit * 0.1) {
-      const adjustedValue = bestRolloverCount * (max32Bit + 1) - (max32Bit - previousValue) + currentValue;
-      console.log(`[${deviceId}] Multiple counter rollovers detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}, ${bestRolloverCount} rollovers, adjusted to ${adjustedValue}`);
-      lastCounterValues[key] = currentValue;
-      return adjustedValue;
-    }
-
-    // If no rollover pattern matches, check if this is a legitimate large drop
-    // For high-speed interfaces, large drops can be normal
-    if (actualDrop > max32Bit * 0.5) { // If drop is more than half of 32-bit max
-      console.log(`[${deviceId}] Large counter drop detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}. Assuming legitimate high-speed traffic.`);
-      lastCounterValues[key] = currentValue;
-      return actualDrop;
-    }
-
-    // Check if the drop looks like a single 32-bit rollover
+    // First, check for single 32-bit rollover (most common case)
     const drop32Bit = max32Bit - previousValue + currentValue;
-    if (drop32Bit > 0 && drop32Bit < max32Bit * 0.1) { // Less than 10% of max
+    if (drop32Bit > 0 && drop32Bit < max32Bit * 0.05) {
       console.log(`[${deviceId}] Counter rollover detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}, adjusted to ${drop32Bit}`);
       lastCounterValues[key] = currentValue;
       return drop32Bit;
     }
 
-    // Check if it looks like a 64-bit rollover
+    // Check for 64-bit rollover
     const drop64Bit = max64Bit - previousValue + currentValue;
-    if (drop64Bit > 0 && drop64Bit < max64Bit * 0.1) {
+    if (drop64Bit > 0 && drop64Bit < max64Bit * 0.05) {
       console.log(`[${deviceId}] 64-bit counter rollover detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}, adjusted to ${drop64Bit}`);
       lastCounterValues[key] = currentValue;
       return drop64Bit;
     }
 
-    // Otherwise, it might be a legitimate reset or interface restart
-    console.warn(`[${deviceId}] Large counter drop detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}. Treating as reset.`);
-    lastCounterValues[key] = currentValue;
-    return 0; // Return 0 to avoid negative bandwidth spikes
+    // For any drop, treat it as legitimate traffic data unless it looks like a true reset
+    // Most drops are legitimate - only treat as reset if counter goes to very small number
+    if (currentValue < 1000000) { // Less than 1MB - likely a reset
+      console.warn(`[${deviceId}] Possible interface reset for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}. Treating as reset.`);
+      lastCounterValues[key] = currentValue;
+      return 0;
+    } else {
+      // Treat the drop as legitimate high-speed traffic
+      console.log(`[${deviceId}] Counter drop detected for ${iface.name} ${direction.toUpperCase()}: ${previousValue} -> ${currentValue}. Treating as legitimate traffic (${(actualDrop / 1000000000).toFixed(2)} GB).`);
+      lastCounterValues[key] = currentValue;
+      return actualDrop;
+    }
   }
   
   // Normal case: current value is greater than previous
@@ -3145,43 +3121,135 @@ function pollSNMP() {
       
       // Query RX traffic - try 64-bit first, then 32-bit
       snmpSessions[deviceId].get([rxOid64], function(rxError64, rxVarbinds64) {
-        if (rxError64 || !rxVarbinds64 || snmp.isVarbindError(rxVarbinds64[0]) || typeof rxVarbinds64[0].value !== 'number' || isNaN(rxVarbinds64[0].value)) {
-          // Try 32-bit counters as fallback
+        let rxValue = null;
+        let use64bit = false;
+        
+        if (rxError64) {
+          console.log(`[${deviceId}] 64-bit RX error for ${iface.name}, falling back to 32-bit: ${rxError64.message}`);
+        } else if (!rxVarbinds64 || snmp.isVarbindError(rxVarbinds64[0])) {
+          console.log(`[${deviceId}] 64-bit RX varbind error for ${iface.name}, falling back to 32-bit`);
+        } else {
+          // Try to convert 64-bit value - it might be a BigInt, string, or number
+          let val = rxVarbinds64[0].value;
+          
+          // Check if it's a valid number or can be converted to number
+          if (typeof val === 'bigint') {
+            rxValue = Number(val);
+            use64bit = true;
+          } else if (typeof val === 'string') {
+            // Try parsing string to number
+            const parsed = parseInt(val, 10);
+            if (!isNaN(parsed)) {
+              rxValue = parsed;
+              use64bit = true;
+            }
+          } else if (typeof val === 'number' && !isNaN(val)) {
+            rxValue = val;
+            use64bit = true;
+          }
+          
+          if (!use64bit) {
+            console.log(`[${deviceId}] Failed to parse 64-bit RX counter for ${iface.name}: Parsed value is invalid: ${typeof rxVarbinds64[0].value} = ${rxVarbinds64[0].value}`);
+          }
+        }
+        
+        // If 64-bit didn't work, try 32-bit
+        if (!use64bit) {
           snmpSessions[deviceId].get([rxOid32], function(rxError32, rxVarbinds32) {
             if (rxError32) {
-              console.error(`[${deviceId}] SNMP RX error for interface ${iface.name}:`, rxError32);
+              console.error(`[${deviceId}] SNMP RX error for interface ${iface.name}:`, rxError32.message);
             } else if (!rxVarbinds32 || snmp.isVarbindError(rxVarbinds32[0])) {
               console.error(`[${deviceId}] SNMP RX varbind error for ${iface.name}:`, rxVarbinds32 ? snmp.varbindError(rxVarbinds32[0]) : 'No varbinds');
-            } else if (typeof rxVarbinds32[0].value !== 'number' || isNaN(rxVarbinds32[0].value)) {
-              console.error(`[${deviceId}] SNMP RX invalid value for ${iface.name}:`, rxVarbinds32[0].value);
             } else {
-              processRxData(deviceId, device, iface, rxVarbinds32[0].value, pollTimestamp);
+              let val = rxVarbinds32[0].value;
+              let rxVal = val;
+              
+              // Try to convert if needed
+              if (typeof val === 'bigint') {
+                rxVal = Number(val);
+              } else if (typeof val === 'string') {
+                const parsed = parseInt(val, 10);
+                if (!isNaN(parsed)) rxVal = parsed;
+              }
+              
+              if (typeof rxVal === 'number' && !isNaN(rxVal)) {
+                console.log(`[${deviceId}] Using 32-bit RX counter for ${iface.name}: ${rxVal}`);
+                processRxData(deviceId, device, iface, rxVal, pollTimestamp);
+              } else {
+                console.error(`[${deviceId}] SNMP RX invalid value for ${iface.name}:`, rxVal);
+              }
             }
           });
         } else {
-          console.log(`[${deviceId}] Using 64-bit RX counter for ${iface.name}: ${rxVarbinds64[0].value}`);
-          processRxData(deviceId, device, iface, rxVarbinds64[0].value, pollTimestamp);
+          console.log(`[${deviceId}] Using 64-bit RX counter for ${iface.name}: ${rxValue}`);
+          processRxData(deviceId, device, iface, rxValue, pollTimestamp);
         }
       });
       
       // Query TX traffic - try 64-bit first, then 32-bit
       snmpSessions[deviceId].get([txOid64], function(txError64, txVarbinds64) {
-        if (txError64 || !txVarbinds64 || snmp.isVarbindError(txVarbinds64[0]) || typeof txVarbinds64[0].value !== 'number' || isNaN(txVarbinds64[0].value)) {
-          // Try 32-bit counters as fallback
+        let txValue = null;
+        let use64bit = false;
+        
+        if (txError64) {
+          console.log(`[${deviceId}] 64-bit TX error for ${iface.name}, falling back to 32-bit: ${txError64.message}`);
+        } else if (!txVarbinds64 || snmp.isVarbindError(txVarbinds64[0])) {
+          console.log(`[${deviceId}] 64-bit TX varbind error for ${iface.name}, falling back to 32-bit`);
+        } else {
+          // Try to convert 64-bit value - it might be a BigInt, string, or number
+          let val = txVarbinds64[0].value;
+          
+          // Check if it's a valid number or can be converted to number
+          if (typeof val === 'bigint') {
+            txValue = Number(val);
+            use64bit = true;
+          } else if (typeof val === 'string') {
+            // Try parsing string to number
+            const parsed = parseInt(val, 10);
+            if (!isNaN(parsed)) {
+              txValue = parsed;
+              use64bit = true;
+            }
+          } else if (typeof val === 'number' && !isNaN(val)) {
+            txValue = val;
+            use64bit = true;
+          }
+          
+          if (!use64bit) {
+            console.log(`[${deviceId}] Failed to parse 64-bit TX counter for ${iface.name}: Parsed value is invalid: ${typeof txVarbinds64[0].value} = ${txVarbinds64[0].value}`);
+          }
+        }
+        
+        // If 64-bit didn't work, try 32-bit
+        if (!use64bit) {
           snmpSessions[deviceId].get([txOid32], function(txError32, txVarbinds32) {
             if (txError32) {
-              console.error(`[${deviceId}] SNMP TX error for interface ${iface.name}:`, txError32);
+              console.error(`[${deviceId}] SNMP TX error for interface ${iface.name}:`, txError32.message);
             } else if (!txVarbinds32 || snmp.isVarbindError(txVarbinds32[0])) {
               console.error(`[${deviceId}] SNMP TX varbind error for ${iface.name}:`, txVarbinds32 ? snmp.varbindError(txVarbinds32[0]) : 'No varbinds');
-            } else if (typeof txVarbinds32[0].value !== 'number' || isNaN(txVarbinds32[0].value)) {
-              console.error(`[${deviceId}] SNMP TX invalid value for ${iface.name}:`, txVarbinds32[0].value);
             } else {
-              processTxData(deviceId, device, iface, txVarbinds32[0].value, pollTimestamp);
+              let val = txVarbinds32[0].value;
+              let txVal = val;
+              
+              // Try to convert if needed
+              if (typeof val === 'bigint') {
+                txVal = Number(val);
+              } else if (typeof val === 'string') {
+                const parsed = parseInt(val, 10);
+                if (!isNaN(parsed)) txVal = parsed;
+              }
+              
+              if (typeof txVal === 'number' && !isNaN(txVal)) {
+                console.log(`[${deviceId}] Using 32-bit TX counter for ${iface.name}: ${txVal}`);
+                processTxData(deviceId, device, iface, txVal, pollTimestamp);
+              } else {
+                console.error(`[${deviceId}] SNMP TX invalid value for ${iface.name}:`, txVal);
+              }
             }
           });
         } else {
-          console.log(`[${deviceId}] Using 64-bit TX counter for ${iface.name}: ${txVarbinds64[0].value}`);
-          processTxData(deviceId, device, iface, txVarbinds64[0].value, pollTimestamp);
+          console.log(`[${deviceId}] Using 64-bit TX counter for ${iface.name}: ${txValue}`);
+          processTxData(deviceId, device, iface, txValue, pollTimestamp);
         }
       });
     });
