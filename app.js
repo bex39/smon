@@ -1362,7 +1362,6 @@ function saveTopology() {
     console.error('Error saving topology:', err.message);
   }
 }
-
 // Get real-time status of topology nodes and links
 function getTopologyStatus() {
   const nodeStatus = {};
@@ -1374,11 +1373,20 @@ function getTopologyStatus() {
       const pingTarget = pingTargets.find(t => t.host === node.probeTarget || t.host === node.ip);
       if (pingTarget && pingStatusHistory[pingTarget.id]) {
         const history = pingStatusHistory[pingTarget.id];
+        
+        // Convert alive boolean to status string
+        let status = 'unknown';
+        if (history.alive === true) {
+          status = 'up';
+        } else if (history.alive === false) {
+          status = 'down';
+        }
+        
         nodeStatus[node.id] = {
-          status: history.status || 'unknown',
-          latency: history.latency || 0,
-          packetLoss: history.packetLoss || 0,
-          lastUpdate: history.lastUpdate || new Date().toISOString()
+          status: status,
+          latency: history.lastLatency || history.latency || 0,
+          packetLoss: history.lastPacketLoss || history.packetLoss || 0,
+          lastUpdate: new Date().toISOString()
         };
       } else {
         nodeStatus[node.id] = {
