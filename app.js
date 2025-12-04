@@ -1303,6 +1303,9 @@ function loadTopology() {
       const data = fs.readFileSync(topologyFile, 'utf8');
       topology = JSON.parse(data);
       console.log(`✓ Topology loaded: ${topology.nodes.length} nodes, ${topology.links.length} links`);
+      
+      // Initialize ping targets for topology nodes
+      initializeTopologyPingTargets();
     } else {
       console.log('ℹ No topology.json found - using empty topology');
       topology = { nodes: [], links: [], views: [] };
@@ -1310,6 +1313,40 @@ function loadTopology() {
   } catch (err) {
     console.error('Error loading topology:', err.message);
     topology = { nodes: [], links: [], views: [] };
+  }
+}
+
+function initializeTopologyPingTargets() {
+  // Add topology nodes to ping targets if they have probe settings
+  for (const node of topology.nodes) {
+    if (node.probeType === 'ping' && node.probeTarget) {
+      // Check if this target already exists
+      const exists = pingTargets.some(t => t.host === node.probeTarget);
+      if (!exists) {
+        const newId = Math.max(...pingTargets.map(t => t.id || 0), 0) + 1;
+        pingTargets.push({
+          id: newId,
+          name: node.label,
+          host: node.probeTarget,
+          group: 'Topology',
+          enabled: true,
+          sourceNodeId: node.id  // Track source node for reference
+        });
+        console.log(`✓ Added topology node to ping targets: ${node.label} (${node.probeTarget})`);
+      }
+    }
+  }
+  
+  // Save updated ping targets
+  savePingTargets();
+}
+
+function savePingTargets() {
+  try {
+    const pingTargetsFile = './ping-targets.json';
+    fs.writeFileSync(pingTargetsFile, JSON.stringify(pingTargets, null, 2));
+  } catch (err) {
+    console.error('Error saving ping targets:', err.message);
   }
 }
 
@@ -4435,6 +4472,24 @@ app.post('/api/topology/nodes', (req, res) => {
     topology.nodes.push(newNode);
     saveTopology();
 
+    // Add to ping targets if it has probe settings
+    if (newNode.probeType === 'ping' && newNode.probeTarget) {
+      const exists = pingTargets.some(t => t.host === newNode.probeTarget);
+      if (!exists) {
+        const newId = Math.max(...pingTargets.map(t => t.id || 0), 0) + 1;
+        pingTargets.push({
+          id: newId,
+          name: newNode.label,
+          host: newNode.probeTarget,
+          group: 'Topology',
+          enabled: true,
+          sourceNodeId: newNode.id
+        });
+        savePingTargets();
+        console.log(`✓ Added topology node to ping targets: ${newNode.label} (${newNode.probeTarget})`);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Node created successfully',
@@ -4457,6 +4512,8 @@ app.put('/api/topology/nodes/:id', (req, res) => {
       return res.status(404).json({ error: 'Node not found' });
     }
 
+    const oldProbeTarget = node.probeTarget;
+
     if (label !== undefined) node.label = label;
     if (ip !== undefined) node.ip = ip;
     if (type !== undefined) node.type = type;
@@ -4467,6 +4524,40 @@ app.put('/api/topology/nodes/:id', (req, res) => {
     if (icon !== undefined) node.icon = icon;
 
     saveTopology();
+
+    // Update ping targets if probe target changed
+    if (probeTarget !== undefined && probeTarget !== oldProbeTarget) {
+      // Remove old target if it exists and has no other sources
+      if (oldProbeTarget) {
+        const oldIndex = pingTargets.findIndex(t => t.host === oldProbeTarget);
+        if (oldIndex !== -1) {
+          const otherSources = topology.nodes.filter(n => n.id !== nodeId && n.probeTarget === oldProbeTarget);
+          if (otherSources.length === 0) {
+            pingTargets.splice(oldIndex, 1);
+            console.log(`✓ Removed ping target: ${oldProbeTarget}`);
+          }
+        }
+      }
+
+      // Add new target if it doesn't exist
+      if (probeTarget && node.probeType === 'ping') {
+        const exists = pingTargets.some(t => t.host === probeTarget);
+        if (!exists) {
+          const newId = Math.max(...pingTargets.map(t => t.id || 0), 0) + 1;
+          pingTargets.push({
+            id: newId,
+            name: node.label,
+            host: probeTarget,
+            group: 'Topology',
+            enabled: true,
+            sourceNodeId: node.id
+          });
+          console.log(`✓ Added ping target: ${probeTarget}`);
+        }
+      }
+
+      savePingTargets();
+    }
 
     res.json({
       success: true,
