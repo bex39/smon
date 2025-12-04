@@ -4423,6 +4423,35 @@ app.get('/api/topology', (req, res) => {
   }
 });
 
+// DEBUG: Get ping status history
+app.get('/api/debug/ping-status', (req, res) => {
+  try {
+    const debugInfo = {
+      pingTargets: pingTargets.map(t => ({
+        id: t.id,
+        name: t.name,
+        host: t.host,
+        group: t.group,
+        enabled: t.enabled,
+        sourceNodeId: t.sourceNodeId,
+        hasHistory: !!pingStatusHistory[t.id],
+        history: pingStatusHistory[t.id]
+      })),
+      topologyNodes: topology.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        probeType: n.probeType,
+        probeTarget: n.probeTarget,
+        type: n.type
+      }))
+    };
+    res.json(debugInfo);
+  } catch (err) {
+    console.error('Error fetching debug info:', err);
+    res.status(500).json({ error: 'Failed to fetch debug info' });
+  }
+});
+
 // GET topology nodes
 app.get('/api/topology/nodes', (req, res) => {
   try {
