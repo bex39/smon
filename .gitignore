@@ -138,3 +138,7 @@ build/
 # config.json & setting.json
 settings.json
 config.json
+
+# Application data files
+history.json
+package-lock.json
